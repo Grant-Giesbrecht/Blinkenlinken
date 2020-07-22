@@ -1,7 +1,7 @@
 import pyvisa as pv
 import time
 
-filename = "exmat_lin3.pcm"
+filename = "./Example Data/program1.pbin"
 
 lines_per_batch = 512
 

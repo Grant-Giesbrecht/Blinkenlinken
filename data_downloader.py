@@ -1,8 +1,8 @@
 import pyvisa as pv
 import time
 
-filename = "downlink_exmat_lin3.pcm"
-readlength = 2048;
+filename = "./Example Data/program1_downlink.pbin"
+readlength = 30;
 
 lines_per_batch = 512
 
