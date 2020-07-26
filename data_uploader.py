@@ -1,7 +1,7 @@
 import pyvisa as pv
 import time
 
-filename = "./Example Data/program1.pbin"
+filename = "./Example Data/add.BML"
 
 lines_per_batch = 512
 

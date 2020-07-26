@@ -14,10 +14,10 @@ size_t file_len_max = 32768;
 
 int bus_pins_out[8] = {30, 31, 32, 33, 34, 35, 36, 37};
 int bus_pins_in[8] = {40, 41, 42, 43, 44, 45, 46, 47};
-unsigned int write_time_74hc574 = 10; //in microseconds, time to keep 574's CP active
-unsigned int trigger_operation_time = 100; //in microseconds, time to keep trigger operation line (to MCU) active
-unsigned int write_time_delay = 100; //in microseconds
-unsigned int read_time_delay = 100; //in microseconds, time for data to be correct and stable on data bus after operation triggered
+unsigned int write_time_74hc574 = 1000; //in microseconds, time to keep 574's CP active
+unsigned int trigger_operation_time = 1000; //in microseconds, time to keep trigger operation line (to MCU) active
+unsigned int write_time_delay = 1000; //in microseconds
+unsigned int read_time_delay = 1000; //in microseconds, time for data to be correct and stable on data bus after operation triggered
 unsigned int clear_pause_time = 1000000; //in microseconds, time for clear pause pin to be active
 #define PIN_TRIG 9 //Pin to trigger operation
 #define PIN_DATA 6 //Pin to clock data buffer
@@ -45,6 +45,11 @@ bool in_write_mode = false;
 void setup() {
     Serial.begin(115200);
 
+    pinMode(26, OUTPUT);
+    pinMode(24, OUTPUT);
+    digitalWrite(26, LOW);
+    digitalWrite(24, LOW);
+
     //Set pins to safe state
 	digitalWrite(PIN_TRIG, HIGH);
     digitalWrite(PIN_DATA, LOW);
@@ -52,10 +57,11 @@ void setup() {
     digitalWrite(PIN_MAR8, LOW);
     digitalWrite(PIN_OPCODE0, LOW);
     digitalWrite(PIN_OPCODE1, HIGH);
+    digitalWrite(PIN_CHIP_ENABLE, HIGH);
     for (int i = 0  ; i  < 8 ; i++){
-        pinMode(bus_pins_in, INPUT);
-        pinMode(bus_pins_out, OUTPUT);
-        digitalWrite(bus_pins_out, LOW);
+        pinMode(bus_pins_in[i], INPUT);
+        pinMode(bus_pins_out[i], OUTPUT);
+        digitalWrite(bus_pins_out[i], LOW);
     }
     pinMode(PIN_TRIG, OUTPUT);
     pinMode(PIN_DATA, OUTPUT);
@@ -74,7 +80,7 @@ void setup() {
     digitalWrite(PIN_OPCODE0, LOW);
     digitalWrite(PIN_OPCODE1, HIGH);
     digitalWrite(PIN_CLEAR_PAUSE, HIGH);
-    digitalWrite(PIN_CHIP_ENABLE, LOW);
+    digitalWrite(PIN_CHIP_ENABLE, HIGH);
     digitalWrite(PIN_A16, LOW);
 
 
@@ -318,14 +324,18 @@ Writes a byte to EEPROM chip
 */
 bool write_byte(long address, int data){
 
+
     //Compute address array
 	error = "";
-    float address_sub = address;
+    long bit_x_val;
+    long address_sub = address;
     int address_bits[16];
     for (int i = 15 ; i >= 0 ; i--){ //For each address
 
-        if (address_sub - pow(2, i) >= 0){
-            address_sub -= pow(2, i);
+        bit_x_val = lround(pow(2, i));
+
+        if (address_sub - bit_x_val >= 0){
+            address_sub -= bit_x_val;
 
             address_bits[i] = 1;
 			error = error + "1";
@@ -339,7 +349,6 @@ bool write_byte(long address, int data){
     //Compute data array
     int data_bits[8];
     int data_sub = data;
-    int bit_x_val;
     // int bins[8] = {128, 64, 32, 16, 8, 4, 2, 1};
     for (int i = 7 ; i >= 0 ; i--){
 
@@ -375,7 +384,7 @@ bool write_byte(long address, int data){
 
     //Set ADDR8 to bus
     for (int  i = 8 ; i < 16 ; i++){
-        digitalWrite(bus_pins_out[i], address_bits[i]);
+        digitalWrite(bus_pins_out[i-8], address_bits[i]);
     }
 
     //Write MAR8
@@ -383,6 +392,9 @@ bool write_byte(long address, int data){
     digitalWrite(PIN_MAR8, HIGH);
     delayMicroseconds(write_time_74hc574);
     digitalWrite(PIN_MAR8, LOW);
+
+    //Enable chip
+    digitalWrite(PIN_CHIP_ENABLE, LOW);
 
     //Set Data to bus
     for (int  i = 0 ; i < 8 ; i++){
@@ -399,13 +411,23 @@ bool write_byte(long address, int data){
     digitalWrite(PIN_OPCODE0, HIGH);
     digitalWrite(PIN_OPCODE1, LOW);
 
+
+
     //Trigger operation
+    digitalWrite(PIN_TRIG, LOW);
     digitalWrite(PIN_TRIG, HIGH);
     delayMicroseconds(trigger_operation_time);
     digitalWrite(PIN_TRIG, LOW);
 
     //Wait 'x' seconds
     delayMicroseconds(write_time_delay);
+
+    //Disable chip
+    digitalWrite(PIN_CHIP_ENABLE, HIGH);
+
+    //Set opcodes to read, incase something happens...
+    digitalWrite(PIN_OPCODE0, LOW);
+    digitalWrite(PIN_OPCODE1, HIGH);
 
     return true;
 }
@@ -659,6 +681,8 @@ bool read_byte(long address, int& data){
 
     long max_addr = 65535;
 
+    digitalWrite(24, HIGH);
+
     //Check address in bounds
     if (address > max_addr){
         error = "address out of bounds";
@@ -687,6 +711,7 @@ bool read_byte(long address, int& data){
     for (int  i = 0 ; i < 8 ; i++){
         digitalWrite(bus_pins_out[i], address_bits[i]);
     }
+    delay(10);
 
     //Write MAR0
     digitalWrite(PIN_MAR0, LOW);
@@ -697,8 +722,9 @@ bool read_byte(long address, int& data){
 
     //Set ADDR8 to bus
     for (int  i = 8 ; i < 16 ; i++){
-        digitalWrite(bus_pins_out[i], address_bits[i]);
+        digitalWrite(bus_pins_out[i-8], address_bits[i]);
     }
+    delay(10);
 
     //Write MAR8
     digitalWrite(PIN_MAR8, LOW);
@@ -711,12 +737,17 @@ bool read_byte(long address, int& data){
     digitalWrite(PIN_OPCODE0, LOW);
     digitalWrite(PIN_OPCODE1, HIGH);
 
+    //Enable chip
+    digitalWrite(PIN_CHIP_ENABLE, LOW);
+
+    delay(10);
+
     //Trigger operation
-    digitalWrite(PIN_TRIG, LOW);
-    delayMicroseconds(trigger_operation_time);
     digitalWrite(PIN_TRIG, HIGH);
     delayMicroseconds(trigger_operation_time);
     digitalWrite(PIN_TRIG, LOW);
+    delayMicroseconds(trigger_operation_time);
+    digitalWrite(PIN_TRIG, HIGH);
 
     //Wait 'x' seconds
     delayMicroseconds(read_time_delay);
@@ -736,6 +767,9 @@ bool read_byte(long address, int& data){
     digitalWrite(PIN_CLEAR_PAUSE, LOW);
     delayMicroseconds(clear_pause_time);
     digitalWrite(PIN_CLEAR_PAUSE, HIGH);
+
+    //Disable chip
+    digitalWrite(PIN_CHIP_ENABLE, HIGH);
 
     return true;
 }
