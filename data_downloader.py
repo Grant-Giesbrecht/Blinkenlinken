@@ -1,8 +1,8 @@
 import pyvisa as pv
 import time
 
-filename = "./Example Data/program1_downlink.pbin"
-readlength = 30;
+filename = "../Blinkenmatrix/opfiles/memorydelta_downlink.bcm"
+readlength = 1001;
 
 lines_per_batch = 512
 

@@ -398,11 +398,11 @@ bool write_byte(long address, int data){
 
     }
 
-	// if (address == 0){
+	if (address == 0){
 		error = error + "<" + String(address);
 
 		error = "WCE: " + String(write_cycle_end);
-	// }
+	}
 
     //Set chip select
     digitalWrite(PIN_CE, LOW);
@@ -416,7 +416,6 @@ bool write_byte(long address, int data){
 
     //Raise write pin
     digitalWrite(PIN_WE, HIGH);
-	return false;
     return true;
 }
 

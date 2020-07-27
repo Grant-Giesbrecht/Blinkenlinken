@@ -1,7 +1,7 @@
 import pyvisa as pv
 import time
 
-filename = "./Example Data/add.BML"
+filename = "../Blinkenmatrix/opfiles/memorydelta.bcm"
 
 lines_per_batch = 512
 
